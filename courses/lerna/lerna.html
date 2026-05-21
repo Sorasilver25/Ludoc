@@ -88,7 +88,7 @@
           </div>
             <span>Frontend Development</span>
           </div>
-          
+
           <div class="sidebar-category">
             <div class="category-title">
               <i class="fab fa-angular"></i>
@@ -116,7 +116,7 @@
                 <a href="../scss/directives-scss.html">Directives SCSS</a>
               </li>
             </ul>
-          </div>
+        </div>
         </div>
 
         <!-- Backend Development -->
@@ -323,7 +323,7 @@
           </p>
           <div class="last-update">
             <i class="far fa-clock"></i>
-            <span>Dernière mise à jour : <strong>01.12.2025</strong></span>
+            <span>Dernière mise à jour : <strong>21.05.2026</strong></span>
           </div>
         </div>
 
@@ -493,6 +493,39 @@ lerna version --conventional-commits
 
 # 4. Publier sur npm
 lerna publish from-git</code></pre>
+          </section>
+
+          <section class="course-section">
+            <h2 class="section-title">Mettre à jour une image Docker depuis le monorepo</h2>
+            <p>
+              Quand un package du monorepo alimente une application conteneurisée, le flux est généralement :
+              récupérer une base connue, rebuild le package concerné, puis publier une nouvelle image avec un tag explicite.
+            </p>
+            <p>Exemple entièrement générique :</p>
+            <pre><code class="language-bash"># Récupérer une image de référence
+docker pull registry.example.com/mon-projet/service-a:latest
+docker pull registry.example.com/mon-projet/service-b:latest
+
+# Rebuilder uniquement les packages concernés
+npx lerna run build --scope=@scope/service-a
+npx lerna run build --scope=@scope/service-b
+
+# Construire et pousser la nouvelle image ARM64
+docker buildx build \
+  --platform linux/arm64 \
+  -t registry.example.com/mon-projet/service-a:1.2.3 \
+  -f apps/service-a/Dockerfile.prod \
+  --push .
+
+docker buildx build \
+  --platform linux/arm64 \
+  -t registry.example.com/mon-projet/service-b:1.2.3 \
+  -f apps/service-b/Dockerfile.prod \
+  --push .</code></pre>
+            <p>
+              Le principe à retenir est simple : un tag clair pour chaque image, un scope Lerna limité au package ciblé,
+              et un chemin de Dockerfile qui correspond à l'application réellement embarquée.
+            </p>
           </section>
 
           <section class="course-section">
