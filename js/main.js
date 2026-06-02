@@ -33,9 +33,139 @@ document.addEventListener('DOMContentLoaded', function() {
   // Mobile menu toggle
   const menuToggle = document.querySelector('.mobile-menu-toggle');
   const sidebar = document.querySelector('.app-sidebar');
+  let mobileActionsOverlay = null;
+  let mobileThemeButtons = [];
+
+  const closeMobileActionsMenu = function() {
+    if (!mobileActionsOverlay) {
+      return;
+    }
+
+    mobileActionsOverlay.classList.remove('show');
+    mobileActionsOverlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('mobile-actions-open');
+  };
+
+  const syncThemeSelection = function(selectedTheme) {
+    themeOptions.forEach(option => {
+      option.classList.toggle('active', option.getAttribute('data-theme') === selectedTheme);
+    });
+
+    mobileThemeButtons.forEach(button => {
+      button.classList.toggle('active', button.getAttribute('data-theme') === selectedTheme);
+    });
+  };
+
+  const setTheme = function(selectedTheme) {
+    applyTheme(selectedTheme);
+    applyNavStyle(localStorage.getItem('nav-style') || 'authentique');
+    localStorage.setItem('theme', selectedTheme);
+    syncThemeSelection(selectedTheme);
+
+    if (themeDropdown) {
+      themeDropdown.classList.remove('show');
+    }
+
+    closeMobileActionsMenu();
+  };
+
+  const toggleNavStyle = function() {
+    const currentStyle = localStorage.getItem('nav-style') === 'paradoxe' ? 'paradoxe' : 'authentique';
+    const nextStyle = currentStyle === 'authentique' ? 'paradoxe' : 'authentique';
+    localStorage.setItem('nav-style', nextStyle);
+    applyNavStyle(nextStyle);
+    updateNavToggleButton();
+    syncParadoxUiState();
+
+    closeMobileActionsMenu();
+  };
+
+  const ensureMobileActionsMenu = function() {
+    if (mobileActionsOverlay) {
+      return mobileActionsOverlay;
+    }
+
+    const headerActions = document.querySelector('.app-header-actions');
+    if (!headerActions) {
+      return null;
+    }
+
+    mobileActionsOverlay = document.createElement('div');
+    mobileActionsOverlay.className = 'mobile-actions-overlay';
+    mobileActionsOverlay.setAttribute('aria-hidden', 'true');
+    mobileActionsOverlay.innerHTML =
+      '<div class="mobile-actions-panel">' +
+      '<div class="mobile-actions-head">' +
+      '<div>' +
+      '<p class="mobile-actions-kicker">Accès rapide</p>' +
+      '<h2>Thème et navigation</h2>' +
+      '</div>' +
+      '<button type="button" class="mobile-actions-close" aria-label="Fermer le menu rapide"><i class="fas fa-xmark"></i></button>' +
+      '</div>' +
+      '<div class="mobile-actions-block">' +
+      '<p class="mobile-actions-label">Thème</p>' +
+      '<div class="mobile-actions-theme-grid">' +
+      Array.from(themeOptions).map(option => {
+        const themeName = option.getAttribute('data-theme');
+        const themeLabel = option.querySelector('span')?.textContent?.trim() || themeName;
+        return '<button type="button" class="mobile-actions-theme" data-theme="' + themeName + '">' + themeLabel + '</button>';
+      }).join('') +
+      '</div>' +
+      '</div>' +
+      '<div class="mobile-actions-block">' +
+      '<p class="mobile-actions-label">Navigation</p>' +
+      '<button type="button" class="mobile-actions-nav-toggle"><i class="fas fa-shuffle"></i><span>Changer le mode de navigation</span></button>' +
+      '<button type="button" class="mobile-actions-sidebar"><i class="fas fa-book-open"></i><span>Ouvrir les articles</span></button>' +
+      '</div>' +
+      '</div>';
+
+    document.body.appendChild(mobileActionsOverlay);
+
+    mobileThemeButtons = Array.from(mobileActionsOverlay.querySelectorAll('.mobile-actions-theme'));
+    mobileThemeButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const selectedTheme = button.getAttribute('data-theme');
+        if (selectedTheme) {
+          setTheme(selectedTheme);
+        }
+      });
+    });
+
+    mobileActionsOverlay.querySelector('.mobile-actions-close')?.addEventListener('click', closeMobileActionsMenu);
+    mobileActionsOverlay.querySelector('.mobile-actions-nav-toggle')?.addEventListener('click', toggleNavStyle);
+    mobileActionsOverlay.querySelector('.mobile-actions-sidebar')?.addEventListener('click', function() {
+      if (sidebar) {
+        sidebar.classList.add('active');
+      }
+      closeMobileActionsMenu();
+    });
+
+    mobileActionsOverlay.addEventListener('click', function(event) {
+      if (event.target === mobileActionsOverlay) {
+        closeMobileActionsMenu();
+      }
+    });
+
+    syncThemeSelection(localStorage.getItem('theme') || 'light');
+    return mobileActionsOverlay;
+  };
   
   if (menuToggle && sidebar) {
     menuToggle.addEventListener('click', function() {
+      if (window.innerWidth <= 992) {
+        const overlay = ensureMobileActionsMenu();
+        if (!overlay) {
+          sidebar.classList.toggle('active');
+          return;
+        }
+
+        const shouldOpen = !overlay.classList.contains('show');
+        overlay.classList.toggle('show', shouldOpen);
+        overlay.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+        document.body.classList.toggle('mobile-actions-open', shouldOpen);
+        return;
+      }
+
       sidebar.classList.toggle('active');
     });
   }
@@ -79,27 +209,12 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const selectedTheme = this.getAttribute('data-theme');
 
-        // Apply selected theme while keeping nav-style classes
-        applyTheme(selectedTheme);
-        applyNavStyle(localStorage.getItem('nav-style') || 'authentique');
-        
-        // Save theme preference
-        localStorage.setItem('theme', selectedTheme);
-        
-        // Update active state in dropdown
-        themeOptions.forEach(opt => opt.classList.remove('active'));
-        this.classList.add('active');
-        
-        // Close dropdown
-        themeDropdown.classList.remove('show');
+        setTheme(selectedTheme);
       });
-      
-      // Set active state based on current theme
-      if (option.getAttribute('data-theme') === localStorage.getItem('theme')) {
-        option.classList.add('active');
-      }
     });
   }
+
+  syncThemeSelection(localStorage.getItem('theme') || 'light');
 
   const appHeaderActions = document.querySelector('.app-header-actions');
   let navModeToggle = document.querySelector('.nav-mode-toggle');
@@ -131,12 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (navModeToggle) {
     updateNavToggleButton();
     navModeToggle.addEventListener('click', function() {
-      const currentStyle = localStorage.getItem('nav-style') === 'paradoxe' ? 'paradoxe' : 'authentique';
-      const nextStyle = currentStyle === 'authentique' ? 'paradoxe' : 'authentique';
-      localStorage.setItem('nav-style', nextStyle);
-      applyNavStyle(nextStyle);
-      updateNavToggleButton();
-      syncParadoxUiState();
+      toggleNavStyle();
     });
   }
 
@@ -202,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
         '<h2>Carte de tes blogs</h2>' +
         '<button type="button" class="paradox-nav-close" aria-label="Fermer la navigation"><i class="fas fa-xmark"></i></button>' +
         '</div>' +
+        '<p class="paradox-nav-summary">Filtre rapidement, retrouve un article précis ou saute d’un sujet à l’autre sans perdre le fil de lecture.</p>' +
         '<div class="paradox-nav-tools">' +
         '<div class="paradox-nav-stats">' +
         '<span id="paradox-total-topics" class="paradox-pill"></span>' +
@@ -425,6 +536,151 @@ document.addEventListener('DOMContentLoaded', function() {
 
   buildParadoxNavigation();
 
+  const sidebarEntries = getEntriesFromSidebar();
+
+  const buildMobileArticleNavigator = function(entries) {
+    const contentWrapper = document.querySelector('.content-wrapper');
+    const courseHeader = document.querySelector('.course-header');
+    if (!contentWrapper || !courseHeader || entries.length < 2) {
+      return;
+    }
+
+    const resolvePath = function(href) {
+      try {
+        return new URL(href, window.location.href).pathname.replace(/\/+$/, '') || '/';
+      } catch (error) {
+        return href;
+      }
+    };
+
+    const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    const currentIndex = entries.findIndex(entry => resolvePath(entry.href) === currentPath);
+    if (currentIndex === -1) {
+      return;
+    }
+
+    if (document.querySelector('.mobile-article-nav')) {
+      return;
+    }
+
+    const navigator = document.createElement('nav');
+    navigator.className = 'mobile-article-nav';
+    navigator.setAttribute('aria-label', 'Navigation rapide entre les articles');
+
+    const buttons = [
+      {
+        key: 'prev',
+        icon: 'fa-arrow-left',
+        label: 'Précédent'
+      },
+      {
+        key: 'all',
+        icon: 'fa-bars-staggered',
+        label: 'Tous les articles'
+      },
+      {
+        key: 'next',
+        icon: 'fa-arrow-right',
+        label: 'Suivant'
+      },
+      {
+        key: 'random',
+        icon: 'fa-shuffle',
+        label: 'Au hasard'
+      }
+    ];
+
+    navigator.innerHTML = buttons.map(button => (
+      '<button type="button" class="mobile-article-nav-button" data-action="' + button.key + '">' +
+      '<i class="fas ' + button.icon + '" aria-hidden="true"></i>' +
+      '<span>' + button.label + '</span>' +
+      '</button>'
+    )).join('');
+
+    const navigateToEntry = function(targetIndex) {
+      const safeIndex = (targetIndex + entries.length) % entries.length;
+      const targetEntry = entries[safeIndex];
+      if (targetEntry && targetEntry.href) {
+        window.location.href = targetEntry.href;
+      }
+    };
+
+    navigator.querySelectorAll('.mobile-article-nav-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const action = button.getAttribute('data-action');
+
+        if (action === 'prev') {
+          navigateToEntry(currentIndex - 1);
+          return;
+        }
+
+        if (action === 'next') {
+          navigateToEntry(currentIndex + 1);
+          return;
+        }
+
+        if (action === 'random') {
+          const randomIndex = Math.floor(Math.random() * entries.length);
+          navigateToEntry(randomIndex);
+          return;
+        }
+
+        if (action === 'all') {
+          const sidebar = document.querySelector('.app-sidebar');
+          if (sidebar) {
+            sidebar.classList.add('active');
+          }
+        }
+      });
+    });
+
+    contentWrapper.insertBefore(navigator, courseHeader.nextSibling);
+  };
+
+  buildMobileArticleNavigator(sidebarEntries);
+
+  const setupMobileCourseSections = function() {
+    if (window.innerWidth > 768) {
+      return;
+    }
+
+    const courseSections = Array.from(document.querySelectorAll('.course-section'));
+    if (!courseSections.length) {
+      return;
+    }
+
+    courseSections.forEach((section, index) => {
+      const sectionTitle = section.querySelector('.section-title');
+      const sectionContent = section.querySelector('.course-content');
+
+      if (!sectionTitle || !sectionContent || section.classList.contains('is-mobile-collapsible')) {
+        return;
+      }
+
+      section.classList.add('is-mobile-collapsible');
+      const shouldExpand = index === 0;
+      section.classList.toggle('is-collapsed', !shouldExpand);
+      sectionTitle.setAttribute('role', 'button');
+      sectionTitle.setAttribute('tabindex', '0');
+      sectionTitle.setAttribute('aria-expanded', String(shouldExpand));
+
+      const toggleSection = function() {
+        const isCollapsed = section.classList.toggle('is-collapsed');
+        sectionTitle.setAttribute('aria-expanded', String(!isCollapsed));
+      };
+
+      sectionTitle.addEventListener('click', toggleSection);
+      sectionTitle.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleSection();
+        }
+      });
+    });
+  };
+
+  setupMobileCourseSections();
+
   // Global header search (all pages) + advanced keyword matching
   const appHeader = document.querySelector('.app-header');
 
@@ -582,8 +838,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (searchInput) {
-    const entries = getEntriesFromSidebar();
-    hydrateEntriesWithPageContent(entries);
+    hydrateEntriesWithPageContent(sidebarEntries);
 
     const rankEntries = function(query) {
       const normalizedQuery = normalizeText(query.trim());
@@ -594,7 +849,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const tokens = tokenizeQuery(query);
       const regex = buildFlexibleRegex(tokens);
 
-      return entries.map(entry => {
+      return sidebarEntries.map(entry => {
         let score = 0;
         const titleNorm = normalizeText(entry.title);
         const categoryNorm = normalizeText(entry.category);
