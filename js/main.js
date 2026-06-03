@@ -535,6 +535,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
   buildParadoxNavigation();
 
+    const normalizeText = function(text) {
+      return (text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    };
+
+    const getEntriesFromSidebar = function() {
+      const anchors = Array.from(document.querySelectorAll('.app-sidebar .sidebar-item a'));
+      const seen = new Set();
+      const entries = [];
+
+    anchors.forEach(anchor => {
+      const href = anchor.getAttribute('href');
+      if (!href || seen.has(href) || href.endsWith('index.html')) {
+        return;
+      }
+
+      seen.add(href);
+      const title = anchor.textContent.trim();
+      const category = anchor.closest('.sidebar-category')?.querySelector('.category-title span:last-child')?.textContent.trim() || '';
+      const slug = href.split('/').pop();
+      const slugTokens = normalizeText(slug.replace(/\.html$/i, '').replace(/[-_]/g, ' '));
+      const searchable = normalizeText([title, category, slugTokens].join(' '));
+
+      entries.push({
+        href,
+        title,
+        category,
+        searchable,
+        contentSearchable: ''
+      });
+    });
+
+    return entries;
+  };
+
   const sidebarEntries = getEntriesFromSidebar();
 
   const buildMobileArticleNavigator = function(entries) {
@@ -718,13 +755,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const suggestionsBox = document.getElementById('search-suggestions');
   const suggestionsList = document.getElementById('search-suggestions-list');
 
-  const normalizeText = function(text) {
-    return (text || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-  };
-
   const tokenizeQuery = function(query) {
     const normalized = normalizeText(query || '');
     const camelSplit = (query || '')
@@ -767,42 +797,12 @@ document.addEventListener('DOMContentLoaded', function() {
     return normalizeText((title + ' ' + h1 + ' ' + mainText).slice(0, 40000));
   };
 
-  const getEntriesFromSidebar = function() {
-    const anchors = Array.from(document.querySelectorAll('.app-sidebar .sidebar-item a'));
-    const seen = new Set();
-    const entries = [];
-
-    anchors.forEach(anchor => {
-      const href = anchor.getAttribute('href');
-      if (!href || seen.has(href) || href.endsWith('index.html')) {
-        return;
-      }
-
-      seen.add(href);
-      const title = anchor.textContent.trim();
-      const category = anchor.closest('.sidebar-category')?.querySelector('.category-title span:last-child')?.textContent.trim() || '';
-      const slug = href.split('/').pop();
-      const slugTokens = normalizeText(slug.replace(/\.html$/i, '').replace(/[-_]/g, ' '));
-      const searchable = normalizeText([title, category, slugTokens].join(' '));
-
-      entries.push({
-        href,
-        title,
-        category,
-        searchable,
-        contentSearchable: ''
-      });
-    });
-
-    return entries;
-  };
-
   const hydrateEntriesWithPageContent = async function(entries) {
     await Promise.all(entries.map(async entry => {
       try {
         const response = await fetch(entry.href);
         if (!response.ok) {
-          return;
+                    return;
         }
         const html = await response.text();
         entry.contentSearchable = extractSearchableTextFromHtml(html);
