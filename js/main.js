@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', function() {
       '<div class="mobile-actions-block">' +
       '<p class="mobile-actions-label">Navigation</p>' +
       '<button type="button" class="mobile-actions-nav-toggle"><i class="fas fa-shuffle"></i><span>Changer le mode de navigation</span></button>' +
-      '<button type="button" class="mobile-actions-sidebar"><i class="fas fa-book-open"></i><span>Ouvrir les articles</span></button>' +
       '</div>' +
       '</div>';
 
